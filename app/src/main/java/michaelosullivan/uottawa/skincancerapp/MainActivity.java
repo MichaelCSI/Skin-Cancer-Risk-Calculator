@@ -28,6 +28,7 @@ import org.tensorflow.lite.support.tensorbuffer.TensorBuffer;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
+import java.text.DecimalFormat;
 
 import michaelosullivan.uottawa.skincancerapp.ml.Model;
 
@@ -100,7 +101,9 @@ public class MainActivity extends AppCompatActivity {
                 }
             }
             String[] classes = {"Benign", "Malignant"};
-            output.setText(classes[maxPos]);
+            DecimalFormat df = new DecimalFormat();
+            df.setMaximumFractionDigits(2);
+            output.setText(classes[maxPos] + " with " + df.format(maxConfidence*100) + "% probability");
 
             // Releases model resources if no longer used.
             model.close();
