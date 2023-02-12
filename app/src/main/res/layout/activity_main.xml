@@ -25,7 +25,8 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_gravity="center"
-            android:text="Label Image" />
+            android:onClick="onUploadChequeButton"
+            android:text="Select Image" />
 
         <TextView
             android:id="@+id/txtOutput"

@@ -1,110 +1,132 @@
 package michaelosullivan.uottawa.skincancerapp;
 
+import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatActivity;
 
 import android.content.Context;
+import android.content.Intent;
 import android.content.res.AssetFileDescriptor;
 import android.content.res.AssetManager;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.graphics.Color;
+import android.media.Image;
+import android.media.ThumbnailUtils;
+import android.net.Uri;
 import android.os.Bundle;
+import android.provider.MediaStore;
 import android.view.View;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.ImageView;
 import android.widget.TextView;
 
-import com.google.android.gms.tasks.OnSuccessListener;
-import com.google.firebase.ml.modeldownloader.CustomModel;
-import com.google.firebase.ml.modeldownloader.CustomModelDownloadConditions;
-import com.google.firebase.ml.modeldownloader.DownloadType;
-import com.google.firebase.ml.modeldownloader.FirebaseModelDownloader;
-
+import org.tensorflow.lite.DataType;
 import org.tensorflow.lite.Interpreter;
+import org.tensorflow.lite.support.tensorbuffer.TensorBuffer;
 
-import java.io.File;
-import java.io.FileInputStream;
 import java.io.IOException;
-import java.io.InputStream;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
-import java.nio.MappedByteBuffer;
-import java.nio.channels.FileChannel;
+
+import michaelosullivan.uottawa.skincancerapp.ml.Model;
+
 
 public class MainActivity extends AppCompatActivity {
 
     Interpreter interpreter;
+    int SELECT_PICTURE = 200;
+    TextView output;
+    Button btn;
+    ImageView image;
+    int imageSize = 224;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
-//        CustomModelDownloadConditions conditions = new CustomModelDownloadConditions.Builder()
-//                .requireWifi()
-//                .build();
-//        FirebaseModelDownloader.getInstance()
-//                .getModel("your_model____", DownloadType.LATEST_MODEL, conditions)
-//                .addOnSuccessListener(new OnSuccessListener<CustomModel>() {
-//                    @Override
-//                    public void onSuccess(CustomModel model) {
-//                        // Download complete. Depending on your app, you could enable the ML
-//                        // feature, or switch from the local model to the remote model, etc.
-//
-//                        // The CustomModel object contains the local path of the model file,
-//                        // which you can use to instantiate a TensorFlow Lite interpreter.
-//                        File modelFile = model.getFile();
-//                        if (modelFile != null) {
-//                            interpreter = new Interpreter(modelFile);
-//                        }
-//                    }
-//                });
-//        TextView output = findViewById(R.id.txtOutput);
-//        Button btn = findViewById(R.id.btnTest);
-//
-//        ImageView imgView = findViewById(R.id.imageToLabel);
-//        // assets folder image file name with extension
-//        String fileName = "flower.jpg";
-//        // get bitmap from assets folder
-//        Bitmap bitmap = getBitmapFromAsset(this, fileName);
-//
-//
-//        Bitmap bitmapScaled = Bitmap.createScaledBitmap(bitmap, 224, 224, true);
-//        ByteBuffer input = ByteBuffer.allocateDirect(224 * 224 * 3 * 4).order(ByteOrder.nativeOrder());
-//        for (int y = 0; y < 224; y++) {
-//            for (int x = 0; x < 224; x++) {
-//                int px = bitmap.getPixel(x, y);
-//
-//                // Get channel values from the pixel value.
-//                int r = Color.red(px);
-//                int g = Color.green(px);
-//                int b = Color.blue(px);
-//
-//                // Normalize channel values to [-1.0, 1.0]. This requirement depends
-//                // on the model. For example, some models might require values to be
-//                // normalized to the range [0.0, 1.0] instead.
-//                float rf = (r - 127) / 255.0f;
-//                float gf = (g - 127) / 255.0f;
-//                float bf = (b - 127) / 255.0f;
-//
-//                input.putFloat(rf);
-//                input.putFloat(gf);
-//                input.putFloat(bf);
-//            }
-//        }
+        output = findViewById(R.id.txtOutput);
+        image = findViewById(R.id.imageToLabel);
+        btn = findViewById(R.id.btnTest);
+        btn.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                Intent cameraIntent = new Intent(Intent.ACTION_PICK, MediaStore.Images.Media.EXTERNAL_CONTENT_URI);
+                startActivityForResult(cameraIntent, 1);
+            }
+        });
     }
-    public static Bitmap getBitmapFromAsset(Context context, String filePath) {
-        AssetManager assetManager = context.getAssets();
 
-        InputStream istr;
-        Bitmap bitmap = null;
+    public void classifyImage(Bitmap image){
         try {
-            istr = assetManager.open(filePath);
-            bitmap = BitmapFactory.decodeStream(istr);
+            Model model = Model.newInstance(getApplicationContext());
+
+            // Creates inputs for reference
+            TensorBuffer inputFeature0 = TensorBuffer.createFixedSize(new int[]{1, imageSize, imageSize, 3}, DataType.FLOAT32);
+            // 4 (byte) * 32 (pixel) * 32 (pixel) * 3 (rgb)
+            ByteBuffer byteBuffer = ByteBuffer.allocateDirect(4 * imageSize * imageSize * 3);
+            byteBuffer.order(ByteOrder.nativeOrder());
+
+
+            // Pixel data to byte buffer
+            int[] intValues = new int[imageSize * imageSize];
+            image.getPixels(intValues, 0, image.getWidth(), 0, 0, image.getWidth(), image.getHeight());
+            int pixel = 0;
+            //iterate over each pixel and extract R, G, and B values. Add those values individually to the byte buffer.
+            for(int i = 0; i < imageSize; i ++){
+                for(int j = 0; j < imageSize; j++){
+                    int val = intValues[pixel++]; // RGB
+                    byteBuffer.putFloat(((val >> 16) & 0xFF) * (1.f / 255));
+                    byteBuffer.putFloat(((val >> 8) & 0xFF) * (1.f / 255));
+                    byteBuffer.putFloat((val & 0xFF) * (1.f / 255));
+                }
+            }
+
+            inputFeature0.loadBuffer(byteBuffer);
+
+            // Runs model inference and gets result.
+            Model.Outputs outputs = model.process(inputFeature0);
+            TensorBuffer outputFeature0 = outputs.getOutputFeature0AsTensorBuffer();
+
+            float[] confidences = outputFeature0.getFloatArray();
+            // find the index of the class with the biggest confidence.
+            int maxPos = 0;
+            float maxConfidence = 0;
+            for (int i = 0; i < confidences.length; i++) {
+                if (confidences[i] > maxConfidence) {
+                    maxConfidence = confidences[i];
+                    maxPos = i;
+                }
+            }
+            String[] classes = {"Benign", "Malignant"};
+            output.setText(classes[maxPos]);
+
+            // Releases model resources if no longer used.
+            model.close();
         } catch (IOException e) {
-            // handle exception
+            // TODO Handle the exception
         }
-        return bitmap;
+    }
+
+    // This function is triggered when user selects the image from the gallery
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, @Nullable Intent data) {
+        if(resultCode == RESULT_OK){
+            Uri dat = data.getData();
+            Bitmap img = null;
+            try {
+                img = MediaStore.Images.Media.getBitmap(this.getContentResolver(), dat);
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+            image.setImageBitmap(img);
+            img = Bitmap.createScaledBitmap(img, imageSize, imageSize, false);
+            classifyImage(img);
+        }
+        super.onActivityResult(requestCode, resultCode, data);
     }
 }
+
+
+
