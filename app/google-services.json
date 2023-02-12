@@ -1,0 +1,39 @@
+{
+  "project_info": {
+    "project_number": "712407118898",
+    "project_id": "uottahack5",
+    "storage_bucket": "uottahack5.appspot.com"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:712407118898:android:c725ae08e63bde7548b82b",
+        "android_client_info": {
+          "package_name": "michaelosullivan.uottawa.skincancerapp"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "712407118898-7plvctdeia1p4e3i8m7v0i2203njrpuh.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCgyi54K5i2WCZFRwOhXt3xCYYLj9KIpxU"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "712407118898-7plvctdeia1p4e3i8m7v0i2203njrpuh.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
